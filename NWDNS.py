@@ -5,6 +5,9 @@ import random
 import time
 import sys
 
+# This is a python library written to parse/unparse DNS packets.
+# It was written in python 2 and (hopefully) should work with python3
+# with the changes made.
 
 # Some useful enumerations:
 
@@ -76,7 +79,7 @@ class DNSNamepacker:
     def __init__(self):
         self.names = {}
     def pack(self, name, index):
-        if name == "":
+        if name == "" or name == ".":
             return struct.pack("B", 0)
         if(name in self.names):
             value = self.names[name] | 0xc000
@@ -84,25 +87,25 @@ class DNSNamepacker:
         self.names[name] = index
         values = name.split('.', 1)
         if(len(values) == 1):
-            return struct.pack("B", len(values[0])) + values[0] + \
+            return struct.pack("B", len(values[0])) + bytes(values[0], 'utf-8') + \
                 struct.pack("B", 0)
-        return struct.pack("B", len(values[0])) + values[0] + \
+        return struct.pack("B", len(values[0])) + bytes(values[0], 'utf8') + \
             self.pack(values[1], index + len(values[0]) + 1)
 
     def unpack(self, data, index, recurseCount = 0):
 
-        val = struct.unpack("B", data[index])[0]
+        val = data[index] #python2 was struct.unpack("B", data[index])[0]
         if(val == 0):
             return ("", 1)
         val = socket.ntohs(struct.unpack("H", data[index:index+2])[0])
         if(recurseCount > 100):
-            raise ValueError, "Loop in name compression"
+            raise (ValueError, "Loop in name compression")
 
         if((val & 0xc000) == 0xc000):
             return (self.unpack(data, val & ~0xc000, recurseCount+1)[0], 2)
 
-        val = struct.unpack("B", data[index])[0]
-        name = data[index+1:index+1+val]
+        val = data[index] #python2 was struct.unpack("B", data[index])[0]
+        name = data[index+1:index+1+val].decode('utf-8')
         resp = self.unpack(data, index+1+val, recurseCount)
         if(resp[0] == ""):
             return (name, val + resp[1] + 1)
@@ -183,7 +186,7 @@ class DNSSOA:
 class DNSHeader:
     def unpack(self, data):
         if(len(data) < 12):
-            raise ValueError, "Bad Received Packet: too short a header"
+            raise (ValueError, "Bad Received Packet: too short a header")
         data_frag = data[0:12]
         unpacked_data = struct.unpack("HBBHHHH", data_frag)
         self.id     =  socket.ntohs(unpacked_data[0])
@@ -376,7 +379,7 @@ class DNSAnswer:
         data = namepacker.pack(self.name, index)
         data += struct.pack("HH", socket.htons(self.rtype), 
                             socket.htons(self.rclass))
-        data += struct.pack("I", socket.htonl(self.ttl) & 0xffffffffL)
+        data += struct.pack("I", socket.htonl(self.ttl) & 0xffffffff)
         if(self.rtype == RTYPE_A):
             data += struct.pack("H", socket.htons(4));
             data += socket.inet_aton(self.rdata)
@@ -405,22 +408,22 @@ class DNSAnswer:
                                                   + len(resp2)
                                                   + 20)) + resp + resp2
             data += struct.pack("I", socket.htonl(self.rdata.serial) 
-                                & 0xffffffffL)
+                                & 0xffffffff)
             data += struct.pack("I", socket.htonl(self.rdata.refresh)
-                                & 0xffffffffL)
+                                & 0xffffffff)
             data += struct.pack("I", socket.htonl(self.rdata.retry)
-                                & 0xffffffffL)
+                                & 0xffffffff)
             data += struct.pack("I", socket.htonl(self.rdata.expire)
-                                & 0xffffffffL)
+                                & 0xffffffff)
             data += struct.pack("I", socket.htonl(self.rdata.minimum)
-                                & 0xffffffffL)
+                                & 0xffffffff)
         elif(self.rtype == RTYPE_OPT):
             if self.rdlength != 0 or self.rdata != None:
-                print "Unable to pack data in opt fields"
+                print ("Unable to pack data in opt fields")
             data += struct.pack("H", socket.htons(self.rdlength))
 
         else:
-            print "Unable to pack rtype %i" % self.rtype
+            print ("Unable to pack rtype %i" % self.rtype)
             sys.stdout.flush()
             ""
             # raise ValueError, "Bad RTYPE of %i" % self.rtype
@@ -461,7 +464,7 @@ class DNSAnswer:
             self.edns_flags = socket.ntohs(values[2])
 
             if self.rdlength != 0:
-                print "Unable to handle EDNS options of any data"
+                print ("Unable to handle EDNS options of any data")
                 self.rdlength = 0;
                 self.edns_has_rdata = True
             else:
