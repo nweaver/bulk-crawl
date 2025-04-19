@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import json
 # This is a tool designed to create a bulk scan of DNS information
 # and output it to a JSON format for top 100k domains for testing of
@@ -50,7 +50,7 @@ def loadfile(filename):
         for line in f:
             lookups.append(line.strip())
     random.shuffle(lookups)
-    lookups = lookups[:50]
+    # lookups = lookups[:5]
 
 
 
@@ -81,12 +81,17 @@ def send_thread():
     sys.stderr.write("Starting sender\n")
     sys.stderr.flush()
     ts = time.time()
+    count = 0;
     for i in range(15):
         for name in lookups:
             name = "www." + name
             while name in cnames:
                 name = cnames[name]
             if name not in names:
+                count += 1
+                if(count % 1000 == 0):
+                    sys.stderr.write(".")
+                    sys.stderr.flush()
                 while ts + (1.0 / pps) > time.time():
                     time.sleep(.25 / pps)
                 ts = time.time()
