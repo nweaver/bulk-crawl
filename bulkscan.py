@@ -36,6 +36,7 @@ names = {}
 # and this is for cnames
 cnames = {}
 
+# and for no such names
 nxnames = {}
 
 # Sentinels for finishing
@@ -44,13 +45,13 @@ sender_done = False
 msg_queue = queue.Queue()
 
 # Load all the names and randomly shuffle
-def loadfile(filename):
+def loadfile(filename, number):
     global lookups
     with open(filename) as f:
         for line in f:
             lookups.append(line.strip())
     random.shuffle(lookups)
-    # lookups = lookups[:5]
+    lookups = lookups[:number]
 
 
 
@@ -131,7 +132,11 @@ def update_cache(msg):
     global names
     global cnames
     global nxnames
+    if(len(msg.question) != 1):
+        return
     question = msg.question[0].qname
+    if(not question):
+        return
     if msg.header.rcode == NWDNS.RCODE_NXNAME:
         nxnames[question] = True;
     if msg.header.rcode != NWDNS.RCODE_OK:
@@ -182,26 +187,46 @@ def recv_packet():
         pass
 
 
-
-
+def loaddata(filename):
+    global names
+    global nameservers
+    global cnames
+    global nxnames
+    try:
+        infile = open(filename, "r")
+        data = []
+        for line in infile:
+            data.append(line)
+        infile.close()
+        if(len(data) == 4):
+            names = json.loads(data[0])
+            nameservers = json.loads(data[1])
+            cnames = json.loads(data[2])
+            nxnames = json.loads(data[3])
+    except:
+        pass
 
 if __name__ == '__main__':
     print("Running Bulk Scan tool")
-    if len(sys.argv) < 4:
-        print("Usage: python bulkscan.py <filename> packets-per-second <output>")
+    if len(sys.argv) < 5:
+        print("Usage: python bulkscan.py <filename> number-of-names packets-per-second <output>")
         exit(1)
-    loadfile(sys.argv[1])
-    pps = int(sys.argv[2])
+    loadfile(sys.argv[1], int(sys.argv[2]))
+    pps = int(sys.argv[3])
     proberoot()
-    threading.Thread(target=recv_thread, daemon=False).start()
+    loaddata(sys.argv[4])
+             
+    threading.Thread(target=recv_thread, daemon=True).start()
     t = threading.Thread(target=send_thread)
     t.start()
     t.join()
+    time.sleep(10)
+    print("done!\n")
     #print("Names: %s" % json.dumps(names))
     #print("NS: %s" % nameservers)
     #print("CNAME: %s" % cnames)
     #print("NX: %s" % nxnames)
-    with open(sys.argv[3], "w") as outfile:
+    with open(sys.argv[4], "w") as outfile:
         json.dump(names, outfile)
         outfile.write("\n")
         json.dump(nameservers, outfile)
