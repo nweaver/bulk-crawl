@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-
+import json
 # This is a tool designed to create a bulk scan of DNS information
 # and output it to a JSON format for top 100k domains for testing of
 # the DNS resolver architecture for HW1
 
 import random
+import struct
 import sys
 import socket
 import threading
@@ -49,7 +50,7 @@ def loadfile(filename):
         for line in f:
             lookups.append(line.strip())
     random.shuffle(lookups)
-    lookups = lookups[:5]
+    lookups = lookups[:50]
 
 
 
@@ -181,8 +182,8 @@ def recv_packet():
 
 if __name__ == '__main__':
     print("Running Bulk Scan tool")
-    if len(sys.argv) < 3:
-        print("Usage: python bulkscan.py <filename> packets-per-second")
+    if len(sys.argv) < 4:
+        print("Usage: python bulkscan.py <filename> packets-per-second <output>")
         exit(1)
     loadfile(sys.argv[1])
     pps = int(sys.argv[2])
@@ -191,8 +192,18 @@ if __name__ == '__main__':
     t = threading.Thread(target=send_thread)
     t.start()
     t.join()
-    print("Names: %s" % names)
-    print("NS: %s" % nameservers)
-    print("CNAME: %s" % cnames)
-    print("NX: %s" % nxnames)
+    #print("Names: %s" % json.dumps(names))
+    #print("NS: %s" % nameservers)
+    #print("CNAME: %s" % cnames)
+    #print("NX: %s" % nxnames)
+    with open(sys.argv[3], "w") as outfile:
+        json.dump(names, outfile)
+        outfile.write("\n")
+        json.dump(nameservers, outfile)
+        outfile.write("\n")
+        json.dump(cnames, outfile)
+        outfile.write("\n")
+        json.dump(nxnames, outfile)
+        outfile.write("\n")
+
 
