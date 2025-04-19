@@ -451,7 +451,7 @@ class DNSAnswer:
                                           data[index+10:index+26])
         elif(self.rtype == RTYPE_SOA):
             mname, len1 = DNSNamepacker().unpack(data, index+10)
-            rname, len2 = DNSNamepacker().unpack(data, index+10+len)
+            rname, len2 = DNSNamepacker().unpack(data, index+10+len1)
             values = struct.unpack("IIIII", 
                                    data[index+10+len1+len2:index+10+len1+len2+20])
             self.rdata = DNSSOA(mname, rname, values)
